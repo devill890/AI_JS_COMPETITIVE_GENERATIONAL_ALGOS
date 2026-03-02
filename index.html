@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+
+    <title>Vanilla JS 3D Rigid Body Simulation</title>
+
+    <!-- Prevent scaling issues -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <style>
+      /* =========================
+       Global Reset
+    ========================= */
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: #0b0f14;
+        font-family: monospace;
+        color: #00ffcc;
+      }
+
+      canvas {
+        display: block;
+      }
+
+      /* overlay containers */
+      #training-overlay,
+      #team-progress-overlay {
+        position: fixed;
+        top: 10px;
+        z-index: 100;
+      }
+
+      #training-overlay {
+        left: 10px;
+        width: 340px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      #team-progress-overlay {
+        right: 10px;
+        width: 260px;
+      }
+
+      .overlay-panel {
+        background: rgba(3, 9, 18, 0.85);
+        border-radius: 12px;
+        padding: 16px;
+        font-size: 12px;
+        color: #c3fff7;
+        pointer-events: auto;
+        backdrop-filter: blur(12px);
+      }
+
+      .panel-title {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #8bf0ff;
+        margin-bottom: 6px;
+      }
+
+      .progress-panel {
+        width: 240px;
+        min-height: 320px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      #title-block {
+        font-size: 11px;
+        line-height: 1.35em;
+        color: #9ef0ff;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      #training-title {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #8bf0ff;
+        margin-bottom: 6px;
+      }
+
+      #training-actions {
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: flex-end;
+      }
+
+      #pause-toggle {
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 6px;
+        padding: 4px 12px;
+        cursor: pointer;
+        font-size: 11px;
+      }
+
+      #pause-toggle:hover {
+        border-color: rgba(255, 255, 255, 0.5);
+      }
+
+      #trainring-row,
+      .training-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 4px;
+        font-size: 12px;
+      }
+
+      #algorithm-control select {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #fff;
+        border-radius: 4px;
+        padding: 2px 6px;
+      }
+
+      .training-row span:last-child {
+        color: #7cffdf;
+      }
+
+      .parameter-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin: 4px 0;
+        font-size: 12px;
+      }
+
+      .parameter-row input[type="range"] {
+        flex: 1;
+        margin: 0 10px;
+      }
+
+      .parameter-row .param-value {
+        width: 40px;
+        text-align: right;
+        color: #f9ffb2;
+      }
+
+      #team-stats-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 6px;
+      }
+
+      .telemetry-panel {
+        margin-top: 12px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 10px;
+      }
+
+      .telemetry-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        margin-bottom: 4px;
+      }
+
+      .telemetry-actions {
+        margin-top: 6px;
+        justify-content: flex-end;
+      }
+
+      #telemetry-export {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 4px;
+        padding: 4px 10px;
+        color: #fff;
+        cursor: pointer;
+        font-size: 11px;
+      }
+
+      #telemetry-export:hover {
+        border-color: rgba(255, 255, 255, 0.6);
+      }
+
+      .team-block {
+        flex: 1;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
+        padding: 6px 8px;
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .team-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 4px;
+        color: #7cffdf;
+      }
+
+      .team-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+      }
+
+      #event-log {
+        margin-top: 10px;
+        max-height: 130px;
+        overflow: hidden;
+        width: 100%;
+      }
+
+      #event-list {
+        list-style: none;
+        padding: 0;
+        margin: 6px 0 0;
+        max-height: 120px;
+        overflow-y: auto;
+      }
+
+      #event-list li {
+        font-size: 11px;
+        margin-bottom: 3px;
+        color: #d5f6ff;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .graph-title {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #a4d8ff;
+        margin-bottom: 4px;
+      }
+
+      #progress-chart {
+        width: 100%;
+        height: 130px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.05);
+        display: block;
+      }
+
+      .graph-legend {
+        margin-top: 6px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.8);
+      }
+
+      .graph-legend span {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .graph-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- =========================
+       Training Overlay
+    ========================= -->
+    <div id="training-overlay">
+      <div id="title-block">
+        <div id="title">3D Rigid Body Simulation</div>
+        <div>Engine: Vanilla JS</div>
+        <div>Physics: Active</div>
+        <div>Agents: Running</div>
+        <div id="fps">FPS: --</div>
+      </div>
+    </div>
+
+    <!-- =========================
+       Team Progress Overlay
+    ========================= -->
+    <div id="team-progress-overlay"></div>
+
+    <!-- =========================
+       Main Entry (ES Module)
+  ========================= -->
+    <script type="module" src="./main.js"></script>
+
+    <!-- =========================
+       FPS Counter (optional)
+  ========================= -->
+    <script>
+      let last = performance.now();
+      let frames = 0;
+
+      function fpsLoop(t) {
+        frames++;
+        if (t - last > 1000) {
+          document.getElementById("fps").textContent = "FPS: " + frames;
+          frames = 0;
+          last = t;
+        }
+        requestAnimationFrame(fpsLoop);
+      }
+
+      requestAnimationFrame(fpsLoop);
+    </script>
+  </body>
+</html>
